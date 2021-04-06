@@ -1,0 +1,525 @@
+<html>
+<head>
+	<style>
+		body {
+			margin: 0;
+		}
+		#container.build {
+			display: grid;
+			grid-template-columns: max(256px, calc(148px + 6vw)) 1fr;
+		}
+		#container.play {
+			display:flex;
+			align-items: center;
+			justify-content: center;
+		}
+		#container.review {
+			display: grid;
+			grid-template-columns: 1fr min-content;
+		}
+		#container {
+			width: 100vw;
+			height: 100vh;
+			padding: 0;
+			margin: 0;
+		}
+		.button {
+			font-family: arial, sans-serif;
+			display: inline-block;
+			text-align: center;
+			background-color: #e7e7e7c0;
+			border-radius: 50%;
+			user-select: none;
+			cursor: pointer;
+			transition: .4s;
+			box-shadow: 8px 8px 16px #80808080, -8px -8px 16px #fefefec0, inset 4px 4px 16px #f4f4f4c0, inset -4px -4px 24px #b0b0b0c0;
+		}
+		.button:hover {
+			background-color: #c0c0c0c0;
+		}
+		
+		#list {
+			overflow-y: auto;
+		}
+		#list .toolbar{
+			position: -webkit-sticky;
+			position: sticky;
+			top: 0;
+			background-color: #ffffffc0;
+		}
+		#list .line {
+			height: 108px;
+			margin: 8px;
+			border-bottom: solid 1px #404040;
+		}
+		#list .thumbnail {
+			min-height: 36px;
+			min-width: 36px;
+			max-height: 100px;
+			max-width: 100px;
+			margin-bottom: 8px;
+			user-select: none;
+			cursor: pointer;
+		}
+		.build .button {
+			width: max(2vw, 36px);
+			height: max(2vw, 36px);
+			line-height: max(2vw, 36px);
+			font-size: max(1.5vw, 27px);
+			margin: 4px;
+			vertical-align: top;
+		}
+		#inspector {
+			display: grid;
+			grid-template-rows: 1fr min-content;
+			height: 100vh;
+		}
+		#inspector img {
+			min-height: 100px;
+			min-width: 100px;
+			max-height: 100%;
+			max-width: 100%;
+			display: block;
+			margin: auto;
+			box-shadow: 8px 8px 16px #80808080, -8px -8px 16px #fefefec0;
+		}
+		#inspector input {
+			width: calc(100% - 12px);
+			margin: 8px;
+		}
+		#qr {
+			width: 100vw;
+			height: 100vh;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 50;
+			position: absolute;
+			top: 0;
+			left: 0;
+			background-color: #ffffffc0;
+		}
+		#qr img {
+			margin: 12px;
+		}
+		
+		.card {
+			display:flex;
+			width: 100%;
+			height: 100%;
+		}
+		.card img {
+			max-width: 100%;
+			max-height: 100%;
+			margin: auto;
+			z-index: 5;
+		}
+		.play .button {
+			width: 12vw;
+			height: 12vw;
+			line-height: 12vw;
+			font-size: 8vw;
+		}
+		.selected {
+			background-color: #e7e740c0;
+		}
+		.selected:hover {
+			background-color: #e7e710c0;
+		}
+		.kiss, .diss {
+		}
+		.kiss.button, .diss.button {
+			position: absolute;
+			z-index: 10;
+			top: 50%;
+			transform: translate(0, -50%);
+		}
+		.kiss.button {
+			right: 0;
+		}
+		.diss.button {
+			left: 0;
+		}
+		.kiss::after {
+			content: "\1F48B";
+		}
+		.diss::after {
+			content: "\1F44E\1F3FF";
+		}
+		.start.button {
+			
+		}
+		.start::after {
+			content: "\25B6";
+		}
+		.finish.button {
+		}
+		.finish::after {
+			content: "\1F3C1";
+		}
+		
+		.review .thumbnail {
+			margin: 8px;
+		}
+		.review #viewer {
+			display: flex;
+			width: 100%;
+			height: 100%;
+			justify-content: center;
+			align-items: center
+		}
+		.review #viewer > div {
+			position: relative;
+		}
+		.review .card {
+			display: inline-block;
+			height: auto;
+			width: auto;
+			max-height: 100vh;
+			max-width: 100vw;
+		}
+		.review .card img {
+			max-width: 100%;
+			max-height: 100vh;
+		}
+		.review .rating {
+			position: absolute;
+			bottom: 0;
+			right: 0;
+		}
+		.review .kiss, .review .diss {
+			font-size: 8vw;
+		}
+	</style>
+</head>
+<body onload="main();">
+	<div id="container" ></div>
+	<script src="../lib/js/thirdParty/qrcode/qrcode.min.js"></script>
+	<script>
+		function Card(imageSource){
+			var self=this;
+			this.container=document.createElement("div");
+			this.image=new Image();
+			this.kiss=false;
+			this.diss=false;
+			
+			this.declare=(choice)=>{
+				this.kiss=(choice=="kiss");
+				this.diss=(choice=="diss");
+				if(window.game && game.unrated.indexOf(self)!=-1){
+					game.rated.push(self);
+					game.unrated.splice(game.unrated.indexOf(self));
+				}
+			}
+			this.present=()=>{
+				if(!window.game){console.log("card.present called without a game object"); return;}
+				game.container.innerHTML="";
+				game.container.appendChild(self.container);
+				var kissButton=document.createElement("div");
+				var dissButton=document.createElement("div");
+				kissButton.classList="kiss button";
+				kissButton.addEventListener("click",()=>{
+					self.declare("kiss");
+					kissButton.classList.add("selected");
+					dissButton.classList.remove("selected");
+				});
+				dissButton.classList="diss button";
+				dissButton.addEventListener("click",()=>{
+					self.declare("diss");
+					kissButton.classList.remove("selected");
+					dissButton.classList.add("selected");
+				});
+				game.container.appendChild(kissButton);
+				game.container.appendChild(dissButton);
+			}
+			this.review=()=>{
+				var reviewContainer=document.createElement("div");
+				reviewContainer.appendChild(self.container);
+				let rating=document.createElement("div");
+				rating.classList="rating";
+				if(self.kiss){rating.classList.add("kiss");}
+				if(self.diss){rating.classList.add("diss");}
+				reviewContainer.appendChild(rating);
+				return reviewContainer;
+			}
+			
+			//this.image.onload=function(){
+			//	self.image.style.height=self.image.naturalHeight;
+			//	self.image.style.width=self.image.naturalWidth;
+			//}
+			if(imageSource){this.image.src=imageSource;}
+			this.container.appendChild(this.image);
+			this.container.classList="card";
+		}
+		function Game(container){
+			var self=this;
+			this.deck=[];
+			this.unrated;
+			this.rated;
+			this.container=container?container:document.createElement("div");
+			this.random=false;
+			
+			this.push=(card)=>{
+				this.deck.push(card);
+			}
+			this.deal=()=>{
+				this.unrated=[];
+				this.rated=[];
+				for(var i=0; i<this.deck.length; i++){
+					this.deck[i].kiss=this.deck[i].diss=false;
+					this.unrated.push(this.deck[i]);
+				}
+				if(this.random){this.unrated.sort(()=>{return (Math.random()-.5);});}
+				function cycle(){
+					if(!self.unrated.length){
+						self.finishPrompt();
+						return;
+					}
+					self.unrated[0].present();
+					self.unrated.push(self.unrated.shift());
+					setTimeout(cycle,2500);
+				}
+				cycle();
+			}
+			this.review=()=>{
+				this.container.innerHTML="";
+				this.container.classList.remove("build");
+				this.container.classList.remove("play");
+				this.container.classList.add("review");
+				
+				let list=document.createElement("div");
+					list.id="list";
+				let viewer=document.createElement("div");
+					viewer.id="viewer";
+					this.container.appendChild(viewer);
+				this.container.appendChild(list);
+				
+				for(var i=0; i<self.rated.length; i++){
+					var line=document.createElement("div");
+					line.classList="line";
+					line.entry=self.rated[i];
+					let thumbnail=document.createElement("img");
+					if(self.rated[i].image.src){thumbnail.src=self.rated[i].image.src;}
+					thumbnail.classList="thumbnail";
+					thumbnail.addEventListener("click",function(){
+						viewer.innerHTML="";
+						viewer.appendChild(this.parentElement.entry.review());
+						let thumbs=list.getElementsByClassName("line");
+						for(var j=0; j<thumbs.length; j++){
+							thumbs[j].classList.remove("selected");
+						}
+						this.parentElement.classList.add("selected");
+					});
+					line.appendChild(thumbnail);
+					list.appendChild(line);
+				}
+			}
+			this.startPrompt=()=>{
+				this.container.classList.remove("build");
+				this.container.classList.add("play");
+				this.container.classList.remove("review");
+				let startButton=document.createElement("div");
+				startButton.classList="start button";
+				startButton.addEventListener("click",self.deal);
+				this.container.innerHTML="";
+				this.container.appendChild(startButton);
+			}
+			this.finishPrompt=()=>{
+				let finishButton=document.createElement("div");
+				finishButton.classList="finish button";
+				finishButton.addEventListener("click",self.review);
+				this.container.innerHTML="";
+				this.container.appendChild(finishButton);
+			}
+			this.builder=()=>{
+				this.container.innerHTML="";
+				this.container.classList.add("build");
+				this.container.classList.remove("play");
+				this.container.classList.remove("review");
+				var counter=0;
+				var currentImage={src:"", id:counter};
+				var lineup=[currentImage];
+				let list=document.createElement("div");
+					list.id="list";
+				let inspector=document.createElement("div");
+					inspector.id="inspector";
+					let viewer=document.createElement("img");
+					viewer.id="viewer";
+					let editor=document.createElement("input");
+					editor.placeholder="URL";
+					editor.addEventListener("change",()=>{
+						viewer.src=currentImage.src=editor.value;
+						displayList();
+					});
+					inspector.appendChild(viewer);
+					inspector.appendChild(editor);
+				
+				this.container.appendChild(list);
+				this.container.appendChild(inspector);
+				
+				function moveUp(entry){
+					lineup.splice(lineup.indexOf(entry)-1,0,lineup.splice(lineup.indexOf(entry),1)[0]);
+					displayList();
+				}
+				function moveDown(entry){
+					lineup.splice(lineup.indexOf(entry)+1,0,lineup.splice(lineup.indexOf(entry),1)[0]);
+					displayList();
+				}
+				function remove(entry){
+					lineup.splice(lineup.indexOf(entry),1);
+					currentImage=currentImage?currentImage:lineup[0];
+					displayList();
+				}
+				function displayList(){
+					list.innerHTML="";
+					let toolbar=document.createElement("div");
+					toolbar.classList="toolbar";
+						let linkButton=document.createElement("div");
+						linkButton.classList="button";
+						linkButton.innerHTML="&#128203;";
+						linkButton.addEventListener("click",()=>{
+							var queryString="";
+							for(var i=0; i<lineup.length; i++){
+								if(i>0){queryString+="\n";}
+								queryString+=lineup[i].src;
+							}
+							var address=location.origin+location.pathname+"?q="+encodeURIComponent(queryString);
+							
+							var t = document.createElement('textarea');
+							t.innerHTML = address;
+							document.body.appendChild(t);
+							t.select();
+							document.execCommand('copy');
+							document.body.removeChild(t);
+							
+							var qrcontainer=document.createElement("div");
+							qrcontainer.id="qr";
+							qrcontainer.addEventListener("click",()=>{
+								document.body.removeChild(qrcontainer);
+							});
+							document.body.appendChild(qrcontainer);
+							let size=Math.min(window.innerHeight, window.innerWidth)-24;
+							var qrcode=new QRCode("qr",{
+								text:address
+								,width:size
+								,height:size
+							});
+							qrcode.makeCode();
+						});
+						toolbar.appendChild(linkButton);
+						
+						let addButton=document.createElement("div");
+						addButton.classList="button";
+						addButton.innerText="+";
+						addButton.addEventListener("click",()=>{
+							currentImage={src:"", id:++counter};
+							lineup.push(currentImage);
+							viewer.src=editor.value=currentImage.src;
+							displayList();
+						});
+						toolbar.appendChild(addButton);
+						
+						let okButton=document.createElement("div");
+						okButton.classList="button";
+						okButton.innerText="OK";
+						okButton.addEventListener("click",()=>{
+							for(var i=0; i<lineup.length; i++){
+								game.push(new Card(lineup[i].src));
+							}
+							game.startPrompt();
+						});
+						toolbar.appendChild(okButton);
+					list.appendChild(toolbar);
+					for(var i=0; i<lineup.length; i++){
+						var line=document.createElement("div");
+						line.classList="line"+((currentImage==lineup[i])?" selected":"");
+						line.entry=lineup[i];
+						let thumbnail=document.createElement("img");
+						if(lineup[i].src){thumbnail.src=lineup[i].src;}
+						thumbnail.classList="thumbnail";
+						thumbnail.addEventListener("click",function(){
+							currentImage=this.parentElement.entry;
+							viewer.src=editor.value=currentImage.src;
+							displayList();
+						});
+						line.appendChild(thumbnail);
+						
+						let moveUpButton=document.createElement("div");
+						moveUpButton.innerHTML="&#9650;";
+						moveUpButton.classList="button";
+						moveUpButton.addEventListener("click",function(){
+							moveUp(this.parentElement.entry);
+						});
+						if(i>0){line.appendChild(moveUpButton);}
+						
+						let moveDownButton=document.createElement("div");
+						moveDownButton.innerHTML="&#9660;";
+						moveDownButton.classList="button";
+						moveDownButton.addEventListener("click",function(){
+							moveDown(this.parentElement.entry);
+						});
+						if(i<lineup.length-1){line.appendChild(moveDownButton);}
+						
+						let removeButton=document.createElement("div");
+						removeButton.innerHTML="&#215;";
+						removeButton.classList="button";
+						removeButton.addEventListener("click",function(){
+							remove(this.parentElement.entry);
+						});
+						line.appendChild(removeButton);
+						
+						list.appendChild(line);
+					}
+				}
+				displayList();
+			}
+			
+			this.container.classList="game";
+		}
+		function main(){
+			let input=[];
+			//TEST VALUES reassign after testing
+			/*
+			let input=[
+				"https://www.oregonlive.com/resizer/Sd4BGYE7-KsFy3DyGygWYV43MFM=/1280x0/smart/arc-anglerfish-arc2-prod-advancelocal.s3.amazonaws.com/public/CD6EMIW4QZDRLECFT6CAS2PICY.jpg"
+				,"https://i.guim.co.uk/img/media/7f461faef1a1f1601fca37eb6e865e248ca7f791/50_0_1133_680/master/1133.jpg?width=445&quality=45&auto=format&fit=max&dpr=2&s=75e943e1cc536746aa58839c49175512"
+				,"https://www.irishtimes.com/polopoly_fs/1.3819150.1552056613!/image/image.jpg_gen/derivatives/ratio_1x1_w1200/image.jpg"
+				,"https://i5.walmartimages.com/asr/310fd075-a633-46a2-a875-1fd6aa58c28e_1.d095643908dc209e5691343e79f0f1b6.jpeg"
+				,"https://www.irishtimes.com/polopoly_fs/1.2425975.1447263047!/image/image.jpg"
+				,"https://cdn.britannica.com/73/20973-050-F6EEBFF1/Max-Planck.jpg"
+				,"https://imagesvc.meredithcorp.io/v3/mm/image?url=https%3A%2F%2Fstatic.onecms.io%2Fwp-content%2Fuploads%2Fsites%2F28%2F2021%2F02%2F04%2Flas-vegas-nevada-strip-FREEVEGAS0221.jpg"
+				,"https://static.wikia.nocookie.net/southpark/images/0/0d/1a.jpg"
+				,"https://briankoberlein.com/blog/calvinball/calvinball.jpg"
+				,"https://cdn.powered-by-nitrosell.com/product_images/27/6592/049000019162.jpg"
+				,"https://images-na.ssl-images-amazon.com/images/I/51FJZMEGENL._SX425_.jpg"
+				,"https://qph.fs.quoracdn.net/main-qimg-62267490aa3b8d4b0357b72b6346729d"
+				,"https://upload.wikimedia.org/wikipedia/commons/d/d8/NASA_Mars_Rover.jpg"
+			];
+			*/
+			//END TEST VALUES
+			
+			function get(param){
+				var output = (window.location.search.split(param+'=')[1]||'').split('&')[0];
+				output=decodeURIComponent(output);
+				output=output.split('+').join(' ');
+
+				return output;
+			}
+			let queryString=get("q");
+			if(queryString.length){
+				input=queryString.split(/\n/);
+			}
+			let random=get("r");
+			
+			window.game=new Game(document.getElementById("container"));
+			for(var i=0; i<input.length; i++){
+				game.push(new Card(input[i]));
+			}
+			if(random && random=="1"){game.random=true;}
+			
+			if(input.length){game.startPrompt();}
+			else{game.builder();}
+		}
+	</script>
+</body>
+</html>
